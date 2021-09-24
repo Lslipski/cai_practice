@@ -62,7 +62,7 @@ WHERE lower(m.med_generic_name_name) like '%tamoxifen%'
 /**************  QUESTION 2 **************
 Create a table with the 3 earliest diagnoses for each patient */
 
--- NOTE: It looks like there is no diagnosis_ID primary key here, so I'll just allow ties on diagnosis_date for now but would want to disambiguate somehow later on
+-- NOTE: It looks like there is no diagnosis_ID primary key here, so I'll just allow ties on diagnosis_date for now but would want to create some surrogate key later on to disambiguate
 
 -- MAIN QUERY
 WITH sub_q AS (select *, rank() over (partition by patient_id order by diagnosis_date) as diag_rank from condition order by diagnosis_date)
