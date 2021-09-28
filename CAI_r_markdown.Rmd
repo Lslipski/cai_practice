@@ -1,0 +1,167 @@
+---
+title: "Concert AI Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Packages used in this analysis
+```{r echo = TRUE, message=FALSE}
+library(tidyverse)
+library(gridExtra)
+library(corrplot)
+library(ggpp)
+```
+
+
+#### Import Data
+```{r, warning=FALSE}
+# Load all tables provided
+patient <- read_csv("/Users/lukie/Documents/concert_AI/Data/patient.csv", na = ".")
+condition <- read_csv("/Users/lukie/Documents/concert_AI/Data/condition.csv", na= ".")
+medication <- read_csv("/Users/lukie/Documents/concert_AI/Data/medication.csv", na = ".")
+biomarker <- read_csv("/Users/lukie/Documents/concert_AI/Data/biomarker.csv", na = ".")
+
+# I'm going to recode character fields as factors and recode long race names for plotting purposes
+patient <- as.data.frame(unclass(patient), stringsAsFactors = TRUE) # convert char to factor
+patient$race <- recode_factor(patient$race, "American Indian or Alaska tive" = "AI_o_AN", "Black or African American" = "Black_o_AA","Other or Unknown Race" = "O_o_U") # recode long race values
+patient <- as_tibble(patient) # return to tidyverse
+
+# create age variable by subtracting today's year (as numeric) from patient's birth year (as numeric)
+patient$age <- as.numeric(format(Sys.Date(), format = "%Y")) - as.numeric(format(patient$date_of_birth, format="%Y"))
+
+# create 2 age bins as below 65 vs 65 or above since this is the medicare cut off
+patient <- patient %>% 
+  mutate(age_bin = cut(age, c(0,64, 10000), labels = c("Low", "High"))) # calling the bins low and high
+
+```
+
+## Question 2
+Using data analysis software (preferably R), describe this patient population. Create
+some output either in the form of tables(s), graphs(s) etc. Show your code, including
+exploratory analysis, and annotate throughout.
+
+Let's have a look at the raw data:
+```{r, warning=FALSE}
+head(patient, 20)
+```
+Count of Missing Values for each Variable:
+```{r, warning=FALSE}
+colSums(is.na(patient))
+```
+
+#### Notes: 
+It looks like almost all of the date_of_death field is missing! This is notoriously hard data to wrangle because of the reporting process, but is important to cancer research*. The other fields seem well reported. But let's take a look at how this patient population breaks down within and across these variables.
+
+
+```{r, fig.align="center", echo=FALSE, warning=FALSE}
+# Make a few plots to show demographic breakdowns
+
+# gender only plot
+gend_hist <- ggplot(data = patient) + 
+  geom_bar(mapping = aes(x = gender, fill = gender)) 
+
+# race only plot
+race_hist <- ggplot(data = patient) + 
+  geom_bar(mapping = aes(x = race, fill = race)) 
+
+#ethnicity only plot
+ethn_hist <- ggplot(data = patient) + 
+  geom_bar(mapping = aes(x = ethnicity, fill = ethnicity)) +
+  theme(axis.title.x=element_blank(), # remove x-axis, too cluttered
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+# age only plot with table of basic stats
+age_tb <- patient %>%  summarize(min_age = min(age), med_age = median(age), max_age = max(age)) # create table 
+data.tb <- tibble(x = 25, y = 50, tb = list(age_tb)) # create object accepted by below by geom_table
+
+# here I create an age histogram with the median line showing and a small summary stats table
+age_hist <- ggplot(patient, aes(x=age)) +   # standard ggplot
+  geom_histogram(aes(x=age), binwidth = 10, colour="black", fill="deepskyblue2") +    # histogram
+  geom_vline(aes(xintercept=median(age)),    # add vertical line to visualize the median age
+        color="red", linetype="dashed", size=1) +
+  geom_table(data = data.tb, aes(x, y, label = tb))  # add table of summary stats in upper left
+
+# overlay gender and ethnicity and stratify by race in one plot
+combine_hist <- ggplot(data = patient) + 
+  geom_bar(mapping = aes(x = age_bin, color = ethnicity), fill = NA, position = 'identity') +
+  facet_grid(~ race)
+```
+
+<center>
+**Distribution of Age**
+</center>
+```{r, fig.align="center", echo=FALSE, warning=FALSE}
+age_hist
+```
+
+
+<center>
+**Patient Counts by Gender and Ethnicity**
+</center>
+
+<br>
+
+```{r, fig.align="center", echo=FALSE, warning=FALSE, out.width = '150%'}
+# plot gender and ethnicity side-by-side
+grid.arrange(ethn_hist, gend_hist, ncol = 2)
+```
+
+<center>
+**Patient Counts by Race**
+</center>
+
+<br>
+```{r, fig.align="center", echo=FALSE, warning=FALSE, out.width = '150%'}
+# plot race below since it takes up more space horizontally
+race_hist
+```
+
+#### Notes: 
+These plots give a rough outline of the demographic breakdown of the data set. 
+
+We can see that this is a relatively older population with a median age just over 65, which is pretty typical for the age of cancer diagnosis in the United States. 
+
+Almost 100% of the patients are female, which is expected, given the incidence of breast cancer in men (https://www.cdc.gov/cancer/breast/men/index.htm). The majority of patients are not hispanic or latino. However about a quarter of all patients are either Hispanic, Latino, or of unknown ethnicity. About 3/4 of the population is white, but notably, the next most frequent race category is unknown. (Sidenote: this is such an important determinant of health, I've always wondered about trying to use zip code to try and estimate income as a proxy since the two are historically related, though often both significant predictors of health outcomes when controlling for the other). Black and African American people make up about 1/8th of the population, and Asian and American Indian or Alaska Natives make up roughly the final 1/10th together.
+
+<br>
+Next I overlayed age and ethnicity and stratified by race just to see if there was any surprising that popped out:
+
+<br>
+
+```{r, fig.align="center", echo=FALSE, fig4, out.width = '150%'}
+combine_hist
+```
+
+#### Notes: 
+Nothing *too* surprising here, but a few things of note. First, I split the continuous age variable into a binary factor of patients who are 64 years old or younger ("Low") and patients who are 65 years old or older ("High"). The first thing that jumps out to me is that depending on the race category, the age profile (or at least those who qualify for medicare vs. those who do not) can be very different. White, Non-Hispanic patients tend to be old enough to qualify for medicare, but the opposite is true for white patients who are Hispanic or Latino. I didn't run the t-tests to determine if these differences are statistically significant, which would be the next step, but it's something to be aware of depending on the research aims. For example, even if only considering White patients, patterns of health care resource utilization may be drastically different depending on whether or not the patients identify as Hispanic or Latino because those that do not are more likely to be old enough to have their health care subsidized by medicare. This could create issues of heteroscedasticity in things like health care expenditures where the variance in spending is much higher for Hispanic or Latino patients, even though this result would be an artifact of age (or even more proximally, insurance coverage), and it could *change* over time. 
+
+Further, I think the Other or Unknown race category is tricky to consider. For example, the majority of Hispanic or Latino patients whose race is Other or Unknown could potentially fall into any number of the other race bins if their race were all of a sudden known. This could drastically change the point I just made about race and age.
+
+
+
+
+## Question 3
+How would you go about describing and summarizing a patient’s various diagnoses? What tables/variables would you use?
+
+
+First I'd want to know what the most prevalent conditions are in this population to get an idea of :
+
+```{r,  warning=FALSE}
+# make a table of diagnoses in order of descending frequency
+top_diags <- na.omit(condition) %>%  # omit missing data
+  group_by(diagnosis_code_code) %>%  # group by diagnosis code to get unique list of diagnoses
+  count(diagnosis_code_code) %>%  # count the number of records for each unique diagnosis
+  inner_join(distinct(condition, diagnosis_code_code, diagnosis_code_name), by = "diagnosis_code_code") %>%  # go back for human readable names of diagnosis codes
+  arrange(desc(n))   # arrange from most to least frequent
+
+head(top_diags, 20)
+```  
+
+
+
+
+
