@@ -83,7 +83,7 @@ Create a table with the 3 earliest diagnoses for each patient */
 
 -- MAIN QUERY
 CREATE TABLE top_diagnoses AS
-WITH sub_q AS (select *, rank() over (partition by patient_id order by diagnosis_date) as diag_rank from condition order by diagnosis_date)
+WITH sub_q AS (select *, row_number() over (partition by patient_id order by diagnosis_date) as diag_rank from condition order by diagnosis_date)
 SELECT * 
 FROM sub_q where diag_rank in (1,2,3)
 ORDER BY patient_id, diagnosis_date
