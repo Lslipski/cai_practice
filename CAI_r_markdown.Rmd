@@ -125,7 +125,7 @@ These plots give a rough outline of the demographic breakdown of the data set.
 
 We can see that this is a relatively older population with a median age just over 65, which is pretty typical for the age of cancer diagnosis in the United States. 
 
-Almost 100% of the patients are female, which is expected, given the incidence of breast cancer in men (https://www.cdc.gov/cancer/breast/men/index.htm). The majority of patients are not hispanic or latino. However about a quarter of all patients are either Hispanic, Latino, or of unknown ethnicity. About 3/4 of the population is white, but notably, the next most frequent race category is unknown. (Sidenote: this is such an important determinant of health, I've always wondered about trying to use zip code to try and estimate income as a proxy since the two are historically related, though often both significant predictors of health outcomes when controlling for the other). Black and African American people make up about 1/8th of the population, and Asian and American Indian or Alaska Natives make up roughly the final 1/10th together.
+Almost 100% of the patients are female, which is expected, given the incidence of breast cancer in men (https://www.cdc.gov/cancer/breast/men/index.htm). The majority of patients are not hispanic or latino. However about a quarter of all patients are either Hispanic, Latino, or of unknown ethnicity. About 3/4 of the population is white, but notably, the next most frequent race category is unknown. (Sidenote: this is such an important determinant of health, I've always wondered about trying to use zip code to try and estimate income as a proxy since the two are historically related, though often both significant predictors of health outcomes when controlling for the other). Black and African American people make up about 1/8th of the population, and Asian and American Indian or Alaska Natives make up roughly the final 1/10th together. Other information I would want to dig in to if possible is the geographic distribution of this population. What is the catchment area? How generalizable to the country is this population?
 
 <br>
 Next I overlayed age and ethnicity and stratified by race just to see if there was any surprising that popped out:
@@ -147,8 +147,41 @@ Further, I think the Other or Unknown race category is tricky to consider. For e
 ## Question 3
 How would you go about describing and summarizing a patient’s various diagnoses? What tables/variables would you use?
 
+#### Cancer Diagnoses
+I think in general we want to describe patients' diagnoses because we want to know how those diagnoses affect some outcome variable of interest, be it life span or time in remission. That means we don't just want to describe a patient's dignoses in all dimensions, but along those dimensions that are most predictive of outcomes of interest.
 
-First I'd want to know what the most prevalent conditions are in this population to get an idea of :
+
+To this end, I would want to take an increasingly in-depth look at two main things: 1.) the most common diagnoses across the entire population and 2.) all of the diagnoses that the individual patient has. Together, these two things will start to inform us on how each patient is "typical" and how they are unique in their diagnoses. Further, taking a careful look at the "most informative" diagnosis variables can form a strong foundation for feature selection in later modeling endeavors.
+
+I think one good place to start is likely the condition table and then bring in more and more data elements, such as biomarkers, to help create a detailed characterization of each patient that eventually extends to include medications, procedures, Labs, chemo therapies, tumor size, lymph node counts, and metastasis information. 
+
+With this rough roadmap in mind, I would first take a look at an individual patient's diagnoses to start building a mental model of what types of diagnoses someone might have. I'll start with patient 29 (who has a death date as 2020-06-28):
+```{r}
+filter(condition, patient_id == 29) %>% # limit to patient 21
+  arrange(diagnosis_date) %>%  # arrange in order by date of diagnosis
+  select(patient_id, diagnosis_date, diagnosis_code_name) %>%   # only look at some descriptive vars
+  print(n=2000)   # print all rows
+```
+#### Notes: 
+What I see here is a patient who had a first (at least in this data) diagnosis of a malignant neoplasm in the right breast. The cancer then spread to the bone, the left breast, the left lung, and ultimately the brain in late 2019. The patient halfway through the following year. But even in this relatively short diagnosis history there are a lot of other things I would want to know. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+I'd first want to know what the most and least prevalent conditions are in this population to get an idea of what is common within this population:
 
 ```{r,  warning=FALSE}
 # make a table of diagnoses in order of descending frequency
@@ -159,7 +192,19 @@ top_diags <- na.omit(condition) %>%  # omit missing data
   arrange(desc(n))   # arrange from most to least frequent
 
 head(top_diags, 20)
+tail(top_diags, 20)
 ```  
+
+#### Notes: 
+This gives me a few things to work with. First of all, there appear to be a lot of diagnoses with separate diagnosis_code_names that are likely equally 'serious' in terms of any one patient's condition. For example:
+
+- Malignant Neoplasm Of Unspecified Site Of Unspecified Female Breast
+- Malignant Neoplasm Of Unspecified Site Of Right Female Breast
+- Malignant Neoplasm Of Unspecified Site Of Left Female Breast
+- Malignant Neoplasm Of Breast
+
+I would want to spend time carefully grouping all of these diagnoses into 
+
 
 
 
