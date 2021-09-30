@@ -8,7 +8,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#### Packages used in this analysis
+### Packages used in this analysis
 ```{r echo = TRUE, message=FALSE}
 library(tidyverse)
 library(gridExtra)
@@ -17,7 +17,7 @@ library(ggpp)
 ```
 
 
-#### Import Data
+### Import Data
 ```{r, echo = TRUE, warning=FALSE}
 # Load all tables provided
 patient <- read_csv("/Users/lukie/Documents/concert_AI/Data/patient.csv", na = ".")
@@ -88,14 +88,14 @@ age_hist <- ggplot(patient, aes(x=age)) +
 
 # overlay age (factor) and ethnicity and stratify by race in one bar plot
 combine_hist <- ggplot(data = patient) +     # standard ggplot
-  geom_bar(mapping = aes(x = age_bin, color = ethnicity), fill = NA, position = 'identity') +
-  facet_grid(~ race)
+  geom_bar(mapping = aes(x = age_bin, color = ethnicity), fill = NA, position = 'identity') + #split bars by age bin and color by ethnicity
+  facet_grid(~ race)  # 'separate' plots by race
 ```
 
 <center>
 **Distribution of Age**
 </center>
-```{r, fig.align="center", echo=FALSE, warning=FALSE}
+```{r, fig.align="center", echo=TRUE, warning=FALSE}
 age_hist
 ```
 
@@ -106,7 +106,7 @@ age_hist
 
 <br>
 
-```{r, fig.align="center", echo=FALSE, warning=FALSE, out.width = '150%'}
+```{r, fig.align="center", echo=TRUE, warning=FALSE, out.width = '150%'}
 # plot gender and ethnicity side-by-side
 grid.arrange(ethn_hist, gend_hist, ncol = 2)
 ```
@@ -126,7 +126,7 @@ These plots give a rough outline of the demographic breakdown of the data set.
 
 We can see that this is a relatively older population with a median age just over 65, which is pretty typical for the age of cancer diagnosis in the United States. 
 
-Almost 100% of the patients are female, which is expected, given the incidence of breast cancer in men (https://www.cdc.gov/cancer/breast/men/index.htm). The majority of patients are not hispanic or latino. However about a quarter of all patients are either Hispanic, Latino, or of unknown ethnicity. About 3/4 of the population is white, but notably, the next most frequent race category is unknown. (Sidenote: this is such an important determinant of health, I've always wondered about trying to use zip code to try and estimate income as a proxy since the two are historically related, though often both significant predictors of health outcomes when controlling for the other). Black and African American people make up about 1/8th of the population, and Asian and American Indian or Alaska Natives make up roughly the final 1/10th together. Other information I would want to dig in to if possible is the geographic distribution of this population. What is the catchment area? How generalizable to the country is this population?
+Almost 100% of the patients are female, which is expected, given the incidence of breast cancer in men (https://www.cdc.gov/cancer/breast/men/index.htm). The majority of patients are not hispanic or latino. However about a quarter of all patients are either Hispanic, Latino, or of unknown ethnicity. About 3/4 of the population is white, but notably, the next most frequent race category is unknown. (Sidenote: this is such an important determinant of health, I've always wondered about trying to use zip code to try and estimate income as a proxy since the two are historically related, though often both are significant predictors of health outcomes when controlling for the other). Black and African American people make up about 1/8th of the population, and Asian and American Indian or Alaska Natives make up roughly the final 1/10th together. Other information I would want to dig in to if possible is the geographic distribution of this population. What is the catchment area? How generalizable to the country is this population?
 
 <br>
 Next I overlayed age and ethnicity and stratified by race just to see if there was any surprising that popped out:
@@ -148,14 +148,15 @@ Further, I think the Other or Unknown race category is tricky to consider. For e
 ## Question 3
 How would you go about describing and summarizing a patient’s various diagnoses? What tables/variables would you use?
 
-#### Cancer Diagnoses
+### A Patient's Diagnoses
 I think in general we want to describe patients' diagnoses because we want to know how those diagnoses affect some outcome variable of interest, be it life span or time in remission. But we also want to recreate a patient's health journey through time with high fidelity.
 
-To both of these ends, I would want to take an increasingly in-depth look at two main things: 1.) the most common diagnoses across the entire population and 2.) all of the diagnoses that the individual patient has. Together, these two things will start to inform us on how each patient is "typical" and how they are unique in their health journey. Further, taking a careful look at the "most informative" diagnosis variables can form a strong foundation for feature selection in later descriptive and modeling endeavors.
+To both of these ends, I would want to take an increasingly in-depth look at all of the diagnoses that the individual patient has. This overview will start to inform us on how each patient is "typical" and how they are unique in their health journey. What's more, taking a careful look at the "most informative" diagnosis variables can form a strong foundation for feature selection in later descriptive QA and modeling endeavors.
 
 I think one good place to start is the condition table and then bring in more and more data elements, such as biomarkers, to help create a detailed characterization of each patient that eventually extends to include medications, procedures, labs, chemo therapies, tumor size, lymph node counts, and metastasis information. 
 
 With this rough roadmap in mind, I would first take a look at an individual patient's diagnoses and demographics to start building a mental model of what types of diagnoses someone might have. I'll start with patient 29 (who also happens to have a death date as 2020-06-28):
+
 ```{r, echo=TRUE, out.width = '200%'}
 
 # print out patient's demographics
@@ -168,8 +169,9 @@ filter(condition, patient_id == 29) %>% # limit to patient 29
   print(n=2000)   # print all rows
 
 ```
+
 #### Notes: 
-What I see here is a 61 year old white, female patient who had an index (at least in this data) diagnosis of a malignant neoplasm in the right breast in 2014. The cancer then either spread or co-existed in the bone, the left breast, the left lung, and ultimately the brain in late 2019. The patient died halfway through the following year. 
+What I see here is (prior to their death date) a 61 year old white, female patient who had an index (at least in this data) diagnosis of a malignant neoplasm in the right breast in 2014. The cancer then either spread or co-existed in the bone, the left breast, the left lung, and ultimately the brain in late 2019. The patient died halfway through the following year. 
 
 A more informative way to look at this same data might be to try to determine how many unique body sites the patient had cancer in:
 
@@ -178,7 +180,9 @@ filter(condition,  patient_id == 29, grepl("malignant neoplasm of", diagnosis_co
   select(patient_id, diagnosis_date, diagnosis_code_name) %>% 
   arrange(diagnosis_date)
 ```
+
 Some of these are repeats, so one way to summarize this data in a way that could be compared across patients is to simply count the unique malignant neoplasm diagnoses:
+
 ```{r, echo=TRUE}
 # only take patient 29's malignant neoplasm records
 neoplasm_recs_29 <- filter(condition,  patient_id == 29, grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
@@ -193,7 +197,7 @@ neoplasm_recs_29
 n_neoplasm_recs_29
 ```
 
-In addition to knowing that this patient has 6 unique malignant neoplasm records, I'm also interested to know what and how many non-malignant-neoplasm records they have to get some idea of their other comorbidities:
+In addition to knowing that this patient has 7 unique malignant neoplasm records, I'm also interested to know what and how many non-malignant-neoplasm records they have to get some idea of their other comorbidities:
 
 ```{r, echo=TRUE}
 # only take patient 29's NON malignant neoplasm records
@@ -209,6 +213,7 @@ n_comorb_recs_29
 ```
 
 We're starting to be able to roughly quantify aspects of this patient's diagnoses like how widespread their cancer was and how comorbid they were. But we also want to describe this patient's time course. So I would be interested in knowing how much time is covered by cancer diagnoses:
+
 ```{r}
 cancer_span <- filter(condition,  patient_id == 29, grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
   summarise(cancer_span = max(diagnosis_date) - min(diagnosis_date))
@@ -222,7 +227,7 @@ Now I'm interested to also pull in biomarkers for this patient
 # how many missing values do we have per column in the biomarker table?
 colSums(is.na(biomarker))
 
-# take a look at patient 29's biomarkers; use test_date for now since so many missing test_collection_date missing
+# take a look at patient 29's biomarkers; use test_date for now since so many test_collection_dates are missing
 filter(biomarker, patient_id == 29) %>%   #patient 29
   select(patient_id, test_date, test_category, test_name_name, test_value_numeric,test_value_name) %>%   # vars of interest
   arrange(test_date)   # order by test date
@@ -232,28 +237,29 @@ filter(biomarker, patient_id == 29) %>%   #patient 29
 We can see that this patient was positive on their original diagnosis date for estrogen and progesterone receptors in tissue but negative for the presence of HER2 in tissue. This gives us information suggesting that this patient had a more common mutation (vs. HER2) and likely may not have received biologics like Herceptin.
 
 I wonder if we can confirm some of these diagnosis-related hypotheses with the medication table:
+
 ```{r, echo=TRUE}
 filter(medication, patient_id == 29) %>%   #patient 29
   select(patient_id, med_start_date, med_status, med_brand_name_name, med_generic_name_name) %>%   # vars of interest
-  arrange(med_start_date)
+  arrange(med_start_date) # order by presumed start of medication
 ```
 
-Confirmed! We can see medications prescribed to this patient that further uncertainty we have in the characterization of their condition. Exemestane is typically used to treat hormone-receptor-positive breast cancer in women who have experienced menopause. Further, Zoledronic acid is used to treat bone disease in patient with cancer, and Dexamethasone is a steroid with many uses throughout cancer care.
+Confirmed! We can see medications prescribed to this patient that further reduce uncertainty we have in the characterization of their condition. Exemestane is typically used to treat hormone-receptor-positive breast cancer in women who have experienced menopause. Zoledronic acid is used to treat bone disease in patients with cancer, and Dexamethasone is a steroid with many uses throughout cancer care.
 
-#### Summary
+### Summary
 I set out to describe and summarize a patient's various diagnoses. To do this I first looked at the patient's demographics and their list of diagnoses. I then grouped their diagnoses into "Malignant Neoplasm vs. Non Malignant Neoplasm" to get an idea of:
 
 1. The number of unique neoplasm diagnoses (proxy for number of body sites affected)
-2. The number of non-cancer comorbid diagnoses the patient has
+2. The number of non-cancer comorbid diagnoses 
 3. The time span covered by cancer diagnoses
 4. Biomarkers that can give information on the *type* of cancer involved
 5. Medications that can help confirm the type of cancer and give an idea of how it was treated
 
-With all of this in mind we've begun to get a more detailed idea of this patient's journey. We see a white, 61 year old, post-menopausal female with a primary diagnosis of a malignant neoplasm of the right breast, with secondary malignant neoplasms of the bone, left breast, left lung, and brain. Specifically, this patient seems to have had a progesterone- and estrogen-receptor-positive neoplasm. Both their breast and bone conditions were treated with somewhat standard therapy using exemestane and zoledronic acid respectively. 
+With all of this in mind we've begun to get a more detailed idea of this patient's journey. We see a white, 61 year old, post-menopausal female with a primary diagnosis of a malignant neoplasm of the right breast, with secondary malignant neoplasms of the bone, left breast, left lung, and brain. Diagnoses for cancer for this patient spanned 2,043 days. Specifically, this patient seems to have had a progesterone- and estrogen-receptor-positive neoplasm. Both their breast and bone conditions were treated with somewhat standard therapy using exemestane and zoledronic acid respectively. 
 
 
+Note for discussion: What I've begun to do here is create quantifiable variables for a single patient that could easily be produced for all patients. Given the huge number of variables in the EHR data, presumably some of these would be highly co-linear or redundant. I'm really interested in understanding the quality of the data by investigating, in addition to more detailed analysis similar to what I've done above, how compressible the information in these tables is by looking at variance inflation factors and principal components analysis. This could also help spec out variables of high interest for future studies. Has anything like this been done already? How do y'all keep track of what you think the highest quality variables are?
 
-
-
+Next Steps: I think one next step would be to begin to start understanding more than one patient's diagnoses at a time. This might be done by identifying and defining a number of variables like those I created above (e.g. number of ) for each patient. Then we could start to begin visualizing patient's journeys through time with riverplots and understanding how many patients within this breast cancer population have different types of tumors and treatments.
 
 
