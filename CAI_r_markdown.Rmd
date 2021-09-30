@@ -196,7 +196,7 @@ n_neoplasm_recs_29
 In addition to knowing that this patient has 6 unique malignant neoplasm records, I'm also interested to know what and how many non-malignant-neoplasm records they have to get some idea of their other comorbidities:
 
 ```{r, echo=TRUE}
-# only take patient 29's malignant neoplasm records
+# only take patient 29's NON malignant neoplasm records
 comorb_recs_29 <- filter(condition,  patient_id == 29, !grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
   select(diagnosis_code_name) %>%  # take diagnosis code name only
   count(diagnosis_code_name)  # get unique rows
@@ -212,50 +212,45 @@ We're starting to be able to roughly quantify aspects of this patient's diagnose
 ```{r}
 cancer_span <- filter(condition,  patient_id == 29, grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
   summarise(cancer_span = max(diagnosis_date) - min(diagnosis_date))
+
+cancer_span
 ```
 
+Now I'm interested to also pull in biomarkers for this patient
 
+```{r, echo=TRUE}
+# how many missing values do we have per column in the biomarker table?
+colSums(is.na(biomarker))
 
+# take a look at patient 29's biomarkers; use test_date for now since so many missing test_collection_date missing
+filter(biomarker, patient_id == 29) %>%   #patient 29
+  select(patient_id, test_date, test_category, test_name_name, test_value_numeric,test_value_name) %>%   # vars of interest
+  arrange(test_date)   # order by test date
 
+```
 
+We can see that this patient was positive on their original diagnosis date for estrogen and progesterone receptors in tissue but negative for the presence of HER2 in tissue. This gives us information suggesting that this patient had a more common mutation (vs. HER2) and likely may not have received biologics like Herceptin.
 
+I wonder if we can confirm some of these diagnosis-related hypotheses with the medication table:
+```{r, echo=TRUE}
+filter(medication, patient_id == 29) %>%   #patient 29
+  select(patient_id, med_start_date, med_status, med_brand_name_name, med_generic_name_name) %>%   # vars of interest
+  arrange(med_start_date)
+```
 
+Confirmed! We can see medications prescribed to this patient that further uncertainty we have in the characterization of their condition. Exemestane is typically used to treat hormone-receptor-positive breast cancer in women who have experienced menopause. Further, Zoledronic acid is used to treat bone disease in patient with cancer, and Dexamethasone is a steroid with many uses throughout cancer care.
 
+#### Summary
+I set out to describe and summarize a patient's various diagnoses. To do this I first looked at the patient's demographics and their list of diagnoses. I then grouped their diagnoses into "Malignant Neoplasm vs. Non Malignant Neoplasm" to get an idea of:
 
+1. The number of unique neoplasm diagnoses (proxy for number of body sites affected)
+2. The number of non-cancer comorbid diagnoses the patient has
+3. The time span covered by cancer diagnoses
+4. Biomarkers that can give information on the *type* of cancer involved
+5. Medications that can help confirm the type of cancer and give an idea of how it was treated
 
+With all of this in mind we've begun to get a more detailed idea of this patient's journey. We see a white, 61 year old, post-menopausal female with a primary diagnosis of a malignant neoplasm of the right breast, with secondary malignant neoplasms of the bone, left breast, left lung, and brain. Specifically, this patient seems to have had a progesterone- and estrogen-receptor-positive neoplasm. Both their breast and bone conditions were treated with somewhat standard therapy using exemestane and zoledronic acid respectively. 
 
-
-
-
-
-
-
-
-
-
-I'd first want to know what the most and least prevalent conditions are in this population to get an idea of what is common within this population:
-
-```{r, echo=TRUE, warning=FALSE}
-# make a table of diagnoses in order of descending frequency
-top_diags <- na.omit(condition) %>%  # omit missing data
-  group_by(diagnosis_code_code) %>%  # group by diagnosis code to get unique list of diagnoses
-  count(diagnosis_code_code) %>%  # count the number of records for each unique diagnosis
-  inner_join(distinct(condition, diagnosis_code_code, diagnosis_code_name), by = "diagnosis_code_code") %>%  # go back for human readable names of diagnosis codes
-  arrange(desc(n))   # arrange from most to least frequent
-
-head(top_diags, 20)
-tail(top_diags, 20)
-```  
-
-#### Notes: 
-This gives me a few things to work with. First of all, there appear to be a lot of diagnoses with separate diagnosis_code_names that are likely equally 'serious' in terms of any one patient's condition. For example:
-
-- Malignant Neoplasm Of Unspecified Site Of Unspecified Female Breast
-- Malignant Neoplasm Of Unspecified Site Of Right Female Breast
-- Malignant Neoplasm Of Unspecified Site Of Left Female Breast
-- Malignant Neoplasm Of Breast
-
-I would want to spend time carefully grouping all of these diagnoses into 
 
 
 
