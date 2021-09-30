@@ -1,5 +1,6 @@
 ---
 title: "Concert AI Analysis"
+author: Luke Slipski
 output: html_document
 ---
 
@@ -17,7 +18,7 @@ library(ggpp)
 
 
 #### Import Data
-```{r, warning=FALSE}
+```{r, echo = TRUE, warning=FALSE}
 # Load all tables provided
 patient <- read_csv("/Users/lukie/Documents/concert_AI/Data/patient.csv", na = ".")
 condition <- read_csv("/Users/lukie/Documents/concert_AI/Data/condition.csv", na= ".")
@@ -44,11 +45,11 @@ some output either in the form of tables(s), graphs(s) etc. Show your code, incl
 exploratory analysis, and annotate throughout.
 
 Let's have a look at the raw data:
-```{r, warning=FALSE}
+```{r, echo=TRUE, warning=FALSE}
 head(patient, 20)
 ```
 Count of Missing Values for each Variable:
-```{r, warning=FALSE}
+```{r, echo=TRUE, warning=FALSE}
 colSums(is.na(patient))
 ```
 
@@ -56,14 +57,14 @@ colSums(is.na(patient))
 It looks like almost all of the date_of_death field is missing! This is notoriously hard data to wrangle because of the reporting process, but is important to cancer research*. The other fields seem well reported. But let's take a look at how this patient population breaks down within and across these variables.
 
 
-```{r, fig.align="center", echo=FALSE, warning=FALSE}
+```{r, fig.align="center", echo=TRUE, warning=FALSE}
 # Make a few plots to show demographic breakdowns
 
-# gender only plot
+# gender only histogram
 gend_hist <- ggplot(data = patient) + 
   geom_bar(mapping = aes(x = gender, fill = gender)) 
 
-# race only plot
+# race only histogram
 race_hist <- ggplot(data = patient) + 
   geom_bar(mapping = aes(x = race, fill = race)) 
 
@@ -74,19 +75,19 @@ ethn_hist <- ggplot(data = patient) +
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
 
-# age only plot with table of basic stats
+# age only histogram with table of basic stats
 age_tb <- patient %>%  summarize(min_age = min(age), med_age = median(age), max_age = max(age)) # create table 
-data.tb <- tibble(x = 25, y = 50, tb = list(age_tb)) # create object accepted by below by geom_table
+data.tb <- tibble(x = 25, y = 50, tb = list(age_tb)) # create object accepted below by geom_table
 
 # here I create an age histogram with the median line showing and a small summary stats table
-age_hist <- ggplot(patient, aes(x=age)) +   # standard ggplot
+age_hist <- ggplot(patient, aes(x=age)) +   
   geom_histogram(aes(x=age), binwidth = 10, colour="black", fill="deepskyblue2") +    # histogram
   geom_vline(aes(xintercept=median(age)),    # add vertical line to visualize the median age
         color="red", linetype="dashed", size=1) +
   geom_table(data = data.tb, aes(x, y, label = tb))  # add table of summary stats in upper left
 
-# overlay gender and ethnicity and stratify by race in one plot
-combine_hist <- ggplot(data = patient) + 
+# overlay age (factor) and ethnicity and stratify by race in one bar plot
+combine_hist <- ggplot(data = patient) +     # standard ggplot
   geom_bar(mapping = aes(x = age_bin, color = ethnicity), fill = NA, position = 'identity') +
   facet_grid(~ race)
 ```
@@ -148,22 +149,73 @@ Further, I think the Other or Unknown race category is tricky to consider. For e
 How would you go about describing and summarizing a patient’s various diagnoses? What tables/variables would you use?
 
 #### Cancer Diagnoses
-I think in general we want to describe patients' diagnoses because we want to know how those diagnoses affect some outcome variable of interest, be it life span or time in remission. That means we don't just want to describe a patient's dignoses in all dimensions, but along those dimensions that are most predictive of outcomes of interest.
+I think in general we want to describe patients' diagnoses because we want to know how those diagnoses affect some outcome variable of interest, be it life span or time in remission. But we also want to recreate a patient's health journey through time with high fidelity.
 
+To both of these ends, I would want to take an increasingly in-depth look at two main things: 1.) the most common diagnoses across the entire population and 2.) all of the diagnoses that the individual patient has. Together, these two things will start to inform us on how each patient is "typical" and how they are unique in their health journey. Further, taking a careful look at the "most informative" diagnosis variables can form a strong foundation for feature selection in later descriptive and modeling endeavors.
 
-To this end, I would want to take an increasingly in-depth look at two main things: 1.) the most common diagnoses across the entire population and 2.) all of the diagnoses that the individual patient has. Together, these two things will start to inform us on how each patient is "typical" and how they are unique in their diagnoses. Further, taking a careful look at the "most informative" diagnosis variables can form a strong foundation for feature selection in later modeling endeavors.
+I think one good place to start is the condition table and then bring in more and more data elements, such as biomarkers, to help create a detailed characterization of each patient that eventually extends to include medications, procedures, labs, chemo therapies, tumor size, lymph node counts, and metastasis information. 
 
-I think one good place to start is likely the condition table and then bring in more and more data elements, such as biomarkers, to help create a detailed characterization of each patient that eventually extends to include medications, procedures, Labs, chemo therapies, tumor size, lymph node counts, and metastasis information. 
+With this rough roadmap in mind, I would first take a look at an individual patient's diagnoses and demographics to start building a mental model of what types of diagnoses someone might have. I'll start with patient 29 (who also happens to have a death date as 2020-06-28):
+```{r, echo=TRUE, out.width = '200%'}
 
-With this rough roadmap in mind, I would first take a look at an individual patient's diagnoses to start building a mental model of what types of diagnoses someone might have. I'll start with patient 29 (who has a death date as 2020-06-28):
-```{r}
-filter(condition, patient_id == 29) %>% # limit to patient 21
+# print out patient's demographics
+print(filter(patient, patient_id == 29), width = 100)    # adding width so all columns appear in output
+
+# print out all diagnoses for this patient
+filter(condition, patient_id == 29) %>% # limit to patient 29
   arrange(diagnosis_date) %>%  # arrange in order by date of diagnosis
   select(patient_id, diagnosis_date, diagnosis_code_name) %>%   # only look at some descriptive vars
   print(n=2000)   # print all rows
+
 ```
 #### Notes: 
-What I see here is a patient who had a first (at least in this data) diagnosis of a malignant neoplasm in the right breast. The cancer then spread to the bone, the left breast, the left lung, and ultimately the brain in late 2019. The patient halfway through the following year. But even in this relatively short diagnosis history there are a lot of other things I would want to know. 
+What I see here is a 61 year old white, female patient who had an index (at least in this data) diagnosis of a malignant neoplasm in the right breast in 2014. The cancer then either spread or co-existed in the bone, the left breast, the left lung, and ultimately the brain in late 2019. The patient died halfway through the following year. 
+
+A more informative way to look at this same data might be to try to determine how many unique body sites the patient had cancer in:
+
+```{r, echo=TRUE}
+filter(condition,  patient_id == 29, grepl("malignant neoplasm of", diagnosis_code_name, ignore.case = TRUE)) %>%
+  select(patient_id, diagnosis_date, diagnosis_code_name) %>% 
+  arrange(diagnosis_date)
+```
+Some of these are repeats, so one way to summarize this data in a way that could be compared across patients is to simply count the unique malignant neoplasm diagnoses:
+```{r, echo=TRUE}
+# only take patient 29's malignant neoplasm records
+neoplasm_recs_29 <- filter(condition,  patient_id == 29, grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
+  select(diagnosis_code_name) %>%  # take diagnosis code name only
+  count(diagnosis_code_name)  # get unique rows
+
+  
+n_neoplasm_recs_29 <- nrow(neoplasm_recs_29) # count number of rows
+
+# display
+neoplasm_recs_29
+n_neoplasm_recs_29
+```
+
+In addition to knowing that this patient has 6 unique malignant neoplasm records, I'm also interested to know what and how many non-malignant-neoplasm records they have to get some idea of their other comorbidities:
+
+```{r, echo=TRUE}
+# only take patient 29's malignant neoplasm records
+comorb_recs_29 <- filter(condition,  patient_id == 29, !grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
+  select(diagnosis_code_name) %>%  # take diagnosis code name only
+  count(diagnosis_code_name)  # get unique rows
+  
+n_comorb_recs_29 <- nrow(comorb_recs_29) # count number of rows
+
+#display
+comorb_recs_29
+n_comorb_recs_29
+```
+
+We're starting to be able to roughly quantify aspects of this patient's diagnoses like how widespread their cancer was and how comorbid they were. But we also want to describe this patient's time course. So I would be interested in knowing how much time is covered by cancer diagnoses:
+```{r}
+cancer_span <- filter(condition,  patient_id == 29, grepl("malignant neoplas", diagnosis_code_name, ignore.case = TRUE)) %>%
+  summarise(cancer_span = max(diagnosis_date) - min(diagnosis_date))
+```
+
+
+
 
 
 
@@ -183,7 +235,7 @@ What I see here is a patient who had a first (at least in this data) diagnosis o
 
 I'd first want to know what the most and least prevalent conditions are in this population to get an idea of what is common within this population:
 
-```{r,  warning=FALSE}
+```{r, echo=TRUE, warning=FALSE}
 # make a table of diagnoses in order of descending frequency
 top_diags <- na.omit(condition) %>%  # omit missing data
   group_by(diagnosis_code_code) %>%  # group by diagnosis code to get unique list of diagnoses
